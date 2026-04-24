@@ -38,11 +38,6 @@ CORE_FILES = {
     "openclaw.json", "openclaw.json.backup-20260422-1025",
 }
 
-# Cron expressions that are known-invalid (6-field with seconds)
-INVALID_CRON_PATTERNS = [
-    re.compile(r'^"expr":\s*"\d+\s+\d+\s+\d+\s+\*\s+\*\s+\*"'),
-]
-
 FINDINGS = []
 
 
@@ -403,41 +398,14 @@ def check_cron_skill_mismatch():
                 "Register a cron job if the skill should run on schedule, or document as on-demand",
             )
 
-    # Check for invalid cron expressions
-    for job in jobs:
-        expr = job.get("schedule", {}).get("expr", "")
-        if expr:
-            fields = expr.split()
-            if len(fields) == 6:
-                find(
-                    "CRITICAL", "cron/jobs.json", 0,
-                    f"Job '{job.get('name')}' has invalid 6-field cron expression: '{expr}'",
-                    "OpenClaw cron uses standard 5-field format (minute hour day month dow)",
-                    f"Fix expression to 5 fields. Example: '{' '.join(fields[1:])}'",
-                )
+    # Removed: 6-field "invalid" check. OpenClaw's cron parser accepts both
+    # 5-field and quartz-style 6-field (seconds-first) expressions, so this
+    # was producing false-positive CRITICAL findings on working jobs.
 
-    # Check for idle jobs that have never run (only if they should have triggered by now)
-    for job in jobs:
-        if job.get("state", {}).get("lastRun") is None and job.get("enabled"):
-            created_ms = job.get("createdAtMs", 0)
-            if created_ms:
-                created = datetime.fromtimestamp(created_ms / 1000, tz=timezone.utc)
-                age_days = (datetime.now(timezone.utc) - created).days
-                # Skip monthly jobs that are <31 days old, weekly <7 days old
-                expr = job.get("schedule", {}).get("expr", "")
-                is_monthly = bool(re.search(r'\d+\s+\d+\s+\d+\s+\*\s+\*', expr))
-                is_weekly = bool(re.search(r'\d+\s+\d+\s+\*\s+\*\s+\d', expr))
-                if is_monthly and age_days < 31:
-                    continue
-                if is_weekly and age_days < 7:
-                    continue
-                if age_days > 3:
-                    find(
-                        "WARNING", "cron/jobs.json", 0,
-                        f"Job '{job.get('name')}' enabled but never ran (created {age_days} days ago)",
-                        "Job has been idle since creation",
-                        "Verify the schedule is correct and the job is actually needed",
-                    )
+    # Removed: "never ran" check. It read `state.lastRun` from jobs.json, but
+    # OpenClaw doesn't persist last-run there — every job has `state: {}`.
+    # Actual execution history lives in gateway runtime state; surface it with
+    # `openclaw cron list` (the "Last" column) if this check is ever restored.
 
     # Check PROJECTS.md entries against actual cron jobs
     proj_text = read_text(WORKSPACE / "PROJECTS.md")
