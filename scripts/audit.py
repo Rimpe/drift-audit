@@ -19,8 +19,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 # ── Config ──────────────────────────────────────────────────────────────
-WORKSPACE = Path("/Users/openclaw/.openclaw/workspace")
-CRON_FILE = Path("/Users/openclaw/.openclaw/cron/jobs.json")
+WORKSPACE = Path.home() / ".openclaw" / "workspace"
+CRON_FILE = Path.home() / ".openclaw" / "cron" / "jobs.json"
 VAULT = WORKSPACE / "claws_vault"
 MEMORY_DIR = WORKSPACE / "memory"
 SKILLS_DIR = WORKSPACE / "skills"
