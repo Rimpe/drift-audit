@@ -60,6 +60,10 @@ Each finding includes:
 - **Silent on clean.** If no drift is found, output `🧭 Drift audit clean. No issues found.`
 - **Be specific.** Include exact file paths, line numbers, and command outputs.
 
+## How to act on findings
+
+When a finding implicates content in a past `memory/YYYY-MM-DD.md` file, **do not edit that file**. Past daily logs are an event record — they capture what was true at that moment, including statements that later turned out wrong. Resolve drift by editing the current state file (`MEMORY.md`, `PROJECTS.md`, `HEARTBEAT.md`, `TRIALS.md`) and appending a correction to *today's* daily log. Curated state files are fair game; daily logs are append-only history.
+
 ## Deeper Audits
 
 For OpenClaw-specific security drift (exposed ports, plugin supply chain, config hygiene), use the **healthcheck** skill.
