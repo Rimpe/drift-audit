@@ -68,6 +68,14 @@ Summary: 8 critical, 23 warnings, 17 info
 | 0 | No critical findings |
 | 1 | At least one critical finding |
 
+## How to act on findings
+
+drift-audit reports state, it doesn't fix it. When acting on a finding, follow this rule:
+
+**Never rewrite past daily logs.** Past `memory/YYYY-MM-DD.md` files are an event record — they capture what was true at that moment, including statements that later turned out wrong. Resolving drift by editing the current state file (`MEMORY.md`, `PROJECTS.md`, `HEARTBEAT.md`, `TRIALS.md`) and appending a correction to *today's* daily log preserves the historical signal. Overwriting a past log destroys it.
+
+Curated state files are fair game to edit or delete stale sections. Daily logs are append-only history.
+
 ## Running as a cron job
 
 Add to `cron/jobs.json` for weekly automated scanning:
