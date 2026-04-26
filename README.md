@@ -9,7 +9,7 @@ A drift scanner for OpenClaw agent workspaces. Detects stale tracker entries, br
 | Area | Checks |
 |------|--------|
 | **PROJECTS.md** | Stale dates, relative-time rot, missing file references, contradictions with MEMORY.md, ghost projects |
-| **MEMORY.md** | Line count, stale model/plugin claims, contradictions, garbled auto-promotion blocks |
+| **MEMORY.md** | Line count, stale model/plugin claims, contradictions, uncurated auto-promotion sections |
 | **HEARTBEAT.md** | Broken file references, trial expiry, vault path drift |
 | **TRIALS.md** | Evaluation dates passed or approaching |
 | **Cron jobs** | Skill/cron mismatches |

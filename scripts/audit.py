@@ -220,14 +220,31 @@ def check_memory_md():
                         )
                         break
 
-    # Garbled auto-promoted blocks
+    # Auto-promoted short-term memory blocks are expected output from OpenClaw's
+    # Memory Dreaming Promotion system. They are not inherently wrong, but Tier 1
+    # memory should not accumulate unreviewed machine-promoted sections forever.
     if "openclaw-memory-promotion" in text:
         line = line_no(text, "openclaw-memory-promotion")
+        promotion_dates = []
+        for match in re.finditer(r'Promoted From Short-Term Memory \((\d{4}-\d{2}-\d{2})\)', text):
+            try:
+                promotion_dates.append(datetime.strptime(match.group(1), "%Y-%m-%d").date())
+            except ValueError:
+                continue
+        newest_date = max(promotion_dates) if promotion_dates else None
+        today = datetime.now().date()
+        age_days = (today - newest_date).days if newest_date else None
+        severity = "INFO" if age_days is not None and age_days <= 2 else "WARNING"
+        reality = (
+            f"Newest auto-promotion section is {age_days} day(s) old; fresh auto-promotions are expected but should be reviewed"
+            if age_days is not None
+            else "Auto-promotion section age could not be determined; review needed"
+        )
         find(
-            "WARNING", "MEMORY.md", line,
-            "Contains raw auto-promotion block (openclaw-memory-promotion)",
-            "Auto-promoted content was never curated into proper prose",
-            "Remove or rewrite the garbled block",
+            severity, "MEMORY.md", line,
+            "Uncurated auto-promotion section present (openclaw-memory-promotion)",
+            reality,
+            "Review the promoted candidates; curate durable items into normal MEMORY.md prose or explicitly dismiss them",
         )
 
     # Check for stale daily log references
