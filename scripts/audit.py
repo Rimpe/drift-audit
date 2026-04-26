@@ -51,36 +51,22 @@ OPENCLAW_MANAGED_ROOT_FILES = {
 # human-approved move/archive work. Past daily-log references should not be
 # rewritten when these move.
 ARCHIVE_CANDIDATE_ROOT_FILES = {
+    # Kept in root until the active trial rollback window closes.
     "AGENTS.md.bak",
     "HEARTBEAT.md.bak",
-    "MEMORY.md.backup-2026-04-06-1135",
-    "MEMORY.md.old260420.md",
-    "heartbeat-investigation-report.md",
-    "heartbeat-final-summary.md",
-    "heartbeat-fixes-todo.md",
-    "self-improving-decommission-investigation-2026-04-09.md",
-    "QMD_INSTALL_ANALYSIS_2026-04-06.md",
-    "EXEC_APPROVALS_PLAN.md",
 }
 
-MOVE_CANDIDATE_ROOT_FILES = {
-    "MONITOR_MULTI_REPO_PLAN.md": "claws_vault/03_creating/use-case-monitor/resources/",
-    "OBSIDIAN_INTEGRATION_PLAN.md": "claws_vault/02_reference/approaches/",
-    "heinrich.md": "claws_vault/02_reference/sources/",
-}
+MOVE_CANDIDATE_ROOT_FILES = {}
 
-REVIEW_BEFORE_MOVE_ROOT_FILES = {
-    "BACKUP_PLAN.md",
-    "PDF_INSTALL_PLAN.md",
-}
+REVIEW_BEFORE_MOVE_ROOT_FILES = set()
 
-CORE_FILES = (
-    CORE_MARKDOWN_FILES
-    | CORE_OTHER_ROOT_FILES
-    | OPENCLAW_MANAGED_ROOT_FILES
-    | ARCHIVE_CANDIDATE_ROOT_FILES
-    | set(MOVE_CANDIDATE_ROOT_FILES)
-    | REVIEW_BEFORE_MOVE_ROOT_FILES
+CORE_FILES = set().union(
+    CORE_MARKDOWN_FILES,
+    CORE_OTHER_ROOT_FILES,
+    OPENCLAW_MANAGED_ROOT_FILES,
+    ARCHIVE_CANDIDATE_ROOT_FILES,
+    set(MOVE_CANDIDATE_ROOT_FILES),
+    REVIEW_BEFORE_MOVE_ROOT_FILES,
 )
 
 OPENCLAW_REFERENCE_DIRS = [
