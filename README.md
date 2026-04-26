@@ -1,8 +1,8 @@
 # drift-audit
 
-A report-only drift scanner for OpenClaw agent workspaces. Detects stale tracker entries, broken references, contradictions between documentation and reality, orphaned files, and cron/skill mismatches.
+A drift scanner for OpenClaw agent workspaces. Detects stale tracker entries, broken references, contradictions between documentation and reality, orphaned files, and cron/skill mismatches.
 
-**Never modifies files.** Findings are reported for human review and explicit approval.
+**Never applies fixes.** Findings are reported for human review and explicit approval. By default, the script also appends a concise audit summary to today's daily memory log; pass `--no-log` for a fully read-only run.
 
 ## What it scans
 
@@ -12,7 +12,7 @@ A report-only drift scanner for OpenClaw agent workspaces. Detects stale tracker
 | **MEMORY.md** | Line count, stale model/plugin claims, contradictions, garbled auto-promotion blocks |
 | **HEARTBEAT.md** | Broken file references, trial expiry, vault path drift |
 | **TRIALS.md** | Evaluation dates passed or approaching |
-| **Cron jobs** | Invalid expressions (6-field), idle jobs, skill/cron mismatches |
+| **Cron jobs** | Skill/cron mismatches |
 | **Skills** | Skills with no cron registration (on-demand vs orphaned) |
 | **Workspace root** | Orphaned backup files, non-core markdown drift |
 | **Daily logs** | Today's file existence |
@@ -31,8 +31,11 @@ cp -r drift-audit ~/.openclaw/workspace/skills/
 ## Usage
 
 ```bash
-# Run the audit
+# Run the audit and append a daily-log summary
 python3 ~/.openclaw/workspace/skills/drift-audit/scripts/audit.py
+
+# Fully read-only run: print report only, no daily-log summary
+python3 ~/.openclaw/workspace/skills/drift-audit/scripts/audit.py --no-log
 
 # Or invoke via OpenClaw skill system
 openclaw skills invoke drift-audit
@@ -42,7 +45,7 @@ openclaw skills invoke drift-audit
 
 Structured report with severity levels:
 
-- **🔴 CRITICAL:** Data integrity risk — contradictions, missing referenced files, invalid cron expressions
+- **🔴 CRITICAL:** Data integrity risk — contradictions, missing referenced files, unreadable required state
 - **🟡 WARNING:** Stale data, approaching deadlines, drifting trackers
 - **🟢 INFO:** Observations, cleanup opportunities, architectural notes
 

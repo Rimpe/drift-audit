@@ -1,7 +1,7 @@
 ---
 name: drift-audit
 version: "1.0.0"
-description: Scan workspace tracker files for drift, staleness, contradictions, and orphaned artifacts. Cross-references PROJECTS.md, MEMORY.md, HEARTBEAT.md, TRIALS.md, cron jobs, skills, and vault projects against filesystem reality. Report-only, never modifies files.
+description: Scan workspace tracker files for drift, staleness, contradictions, and orphaned artifacts. Cross-references PROJECTS.md, MEMORY.md, HEARTBEAT.md, TRIALS.md, cron jobs, skills, and vault projects against filesystem reality. Reports findings and logs a daily summary unless --no-log is used; never applies fixes.
 allowed-tools: Bash, Read
 user-invocable: true
 metadata:
@@ -19,7 +19,7 @@ metadata:
 
 Run a comprehensive drift scan across the OpenClaw workspace. Detects stale tracker entries, broken references, contradictions between documentation and reality, orphaned files, and cron/skill mismatches.
 
-**Report-only.** This skill never modifies files. Findings are returned as a formatted report suitable for Telegram or terminal display.
+**Report-only for fixes.** This skill never applies corrections to tracker files. It prints findings and, by default, appends a short audit summary to today's daily memory log. Use `--no-log` for a fully read-only run.
 
 ## When to Run
 
@@ -36,7 +36,7 @@ When invoked, run the audit script:
 python3 ~/.openclaw/workspace/skills/drift-audit/scripts/audit.py
 ```
 
-The script requires no arguments. It scans the workspace and prints a structured report to stdout.
+The script scans the workspace, prints a structured report to stdout, and appends a daily-log summary. Pass `--no-log` to skip the daily-log write.
 
 ## Report Format
 
@@ -54,7 +54,8 @@ Each finding includes:
 
 ## Rules
 
-- **Never modify files.** All findings are reported; fixes require explicit approval.
+- **Never apply fixes automatically.** All findings are reported; fixes require explicit approval.
+- **Log by default.** Append a concise summary to today's daily memory unless `--no-log` is passed.
 - **Cross-reference everything.** A claim in PROJECTS.md is only valid if the referenced file, cron, or skill exists.
 - **Date-aware.** Entries with relative dates ("tomorrow", "next week") are checked against the actual calendar.
 - **Silent on clean.** If no drift is found, output `🧭 Drift audit clean. No issues found.`
@@ -70,7 +71,7 @@ For OpenClaw-specific security drift (exposed ports, plugin supply chain, config
 
 ## Daily Log Entry
 
-After running, append a summary to today's daily memory:
+After running, the script appends a summary to today's daily memory by default:
 
 ```
 ## Drift Audit — HH:MM

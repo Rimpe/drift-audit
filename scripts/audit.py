@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """
 drift-audit: Scan workspace tracker files for drift, staleness, contradictions,
-and orphaned artifacts. Report-only, never modifies files.
+and orphaned artifacts. Never applies fixes; writes a daily-log summary unless
+--no-log is passed.
 
 Usage:
-    python3 audit.py
+    python3 audit.py [--no-log]
 
 Output:
     Structured drift report with severity levels to stdout.
 """
 
+import argparse
 import json
 import os
 import re
@@ -39,6 +41,19 @@ CORE_FILES = {
 }
 
 FINDINGS = []
+ARGS = None
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Scan OpenClaw workspace trackers for drift. Writes a daily-log summary by default."
+    )
+    parser.add_argument(
+        "--no-log",
+        action="store_true",
+        help="Do not append the audit summary to today's daily memory log.",
+    )
+    return parser.parse_args()
 
 
 def find(sev: str, source: str, line: int, claim: str, reality: str, fix: str):
@@ -513,7 +528,10 @@ def print_report():
         print(f"   Fix: {f['fix']}")
         print("")
 
-    # Append daily log summary
+    # Append daily log summary unless explicitly disabled.
+    if ARGS and ARGS.no_log:
+        return
+
     today = datetime.now().strftime("%Y-%m-%d")
     daily_file = MEMORY_DIR / f"{today}.md"
     if daily_file.exists():
@@ -533,6 +551,7 @@ def print_report():
 
 # ── Main ───────────────────────────────────────────────────────────────
 if __name__ == "__main__":
+    ARGS = parse_args()
     check_projects_md()
     check_memory_md()
     check_heartbeat_md()
