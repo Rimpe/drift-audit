@@ -17,7 +17,7 @@ metadata:
 
 ## Purpose
 
-Run a comprehensive drift scan across the OpenClaw workspace. Detects stale tracker entries, broken references, contradictions between documentation and reality, orphaned files, and cron/skill mismatches.
+Run a comprehensive drift scan across the OpenClaw workspace. Detects stale tracker entries, broken references, contradictions between documentation and reality, root file ownership/cleanup candidates, cron/skill mismatches, and INFO-only wiki hygiene signals.
 
 **Report-only for fixes.** This skill never applies corrections to tracker files. It prints findings and, by default, appends a short audit summary to today's daily memory log. Use `--no-log` for a fully read-only run.
 
@@ -72,6 +72,8 @@ Each finding includes:
 When a finding implicates content in a past `memory/YYYY-MM-DD.md` file, **do not edit that file**. Past daily logs are an event record — they capture what was true at that moment, including statements that later turned out wrong. Resolve drift by editing the current state file (`MEMORY.md`, `PROJECTS.md`, `HEARTBEAT.md`, `TRIALS.md`) and appending a correction to *today's* daily log. Curated state files are fair game; daily logs are append-only history.
 
 OpenClaw dreaming auto-promotions are expected but temporary. Treat `## Promoted From Short-Term Memory (...)` sections as an inbox: fresh sections are INFO, stale unreviewed sections become WARNING, and resolution means curate durable items into normal `MEMORY.md` prose, dismiss noise, or mark deferred with `<!-- openclaw-promotion-reviewed:YYYY-MM-DD curated|dismissed|deferred -->`.
+
+Root file cleanup is conservative. The script scans root `*.md` and observed backup siblings `*.md.*`; it does not treat `claws_vault/**/*.md` as root clutter. Unknown root files are INFO only. Use deterministic signals first (static classification, references, installed OpenClaw/runtime string matches). If still unclear, AI/web triage may help classify ownership, but must never automatically move/delete files.
 
 ## Deeper Audits
 

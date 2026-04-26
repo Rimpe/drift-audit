@@ -27,18 +27,67 @@ VAULT = WORKSPACE / "claws_vault"
 MEMORY_DIR = WORKSPACE / "memory"
 SKILLS_DIR = WORKSPACE / "skills"
 
-# Files that are considered "core" and should not be flagged as orphaned
-CORE_FILES = {
-    "AGENTS.md", "AGENTS.md.bak", "BACKUP_PLAN.md", "DREAMS.md",
-    "EXEC_APPROVALS_PLAN.md", "HEALTH-CHECK.md", "HEARTBEAT.md",
-    "HEARTBEAT.md.bak", "HEARTBEAT_PAYLOAD_TEMPLATE.txt",
-    "IDENTITY.md", "INITIAL_HEARTBEAT_STATE.json", "MEMORY.md",
-    "MEMORY.md.backup-2026-04-06-1135", "MEMORY.md.old260420.md",
-    "MONITOR_MULTI_REPO_PLAN.md", "OBSIDIAN_INTEGRATION_PLAN.md",
-    "PDF_INSTALL_PLAN.md", "PROJECTS.md", "QMD_INSTALL_ANALYSIS_2026-04-06.md",
-    "SOUL.md", "TOOLS.md", "TRIALS.md", "USER.md",
+# Root file classification. Keep this conservative: unknown root files are
+# INFO-level review prompts, not automatic drift. Static sets are scaffolding;
+# dynamic OpenClaw reference detection below protects against future managed
+# files that are not yet listed here.
+CORE_MARKDOWN_FILES = {
+    "AGENTS.md", "HEALTH-CHECK.md", "HEARTBEAT.md", "IDENTITY.md",
+    "MEMORY.md", "PROJECTS.md", "SOUL.md", "TOOLS.md", "TRIALS.md",
+    "USER.md",
+}
+
+CORE_OTHER_ROOT_FILES = {
+    "HEARTBEAT_PAYLOAD_TEMPLATE.txt", "INITIAL_HEARTBEAT_STATE.json",
     "openclaw.json", "openclaw.json.backup-20260422-1025",
 }
+
+# OpenClaw-managed root files observed in installed code/CLI, not user clutter.
+OPENCLAW_MANAGED_ROOT_FILES = {
+    "DREAMS.md",
+}
+
+# Reviewed cleanup candidates. These are not errors; they are pending explicit
+# human-approved move/archive work. Past daily-log references should not be
+# rewritten when these move.
+ARCHIVE_CANDIDATE_ROOT_FILES = {
+    "AGENTS.md.bak",
+    "HEARTBEAT.md.bak",
+    "MEMORY.md.backup-2026-04-06-1135",
+    "MEMORY.md.old260420.md",
+    "heartbeat-investigation-report.md",
+    "heartbeat-final-summary.md",
+    "heartbeat-fixes-todo.md",
+    "self-improving-decommission-investigation-2026-04-09.md",
+    "QMD_INSTALL_ANALYSIS_2026-04-06.md",
+    "EXEC_APPROVALS_PLAN.md",
+}
+
+MOVE_CANDIDATE_ROOT_FILES = {
+    "MONITOR_MULTI_REPO_PLAN.md": "claws_vault/03_creating/use-case-monitor/resources/",
+    "OBSIDIAN_INTEGRATION_PLAN.md": "claws_vault/02_reference/approaches/",
+    "heinrich.md": "claws_vault/02_reference/sources/",
+}
+
+REVIEW_BEFORE_MOVE_ROOT_FILES = {
+    "BACKUP_PLAN.md",
+    "PDF_INSTALL_PLAN.md",
+}
+
+CORE_FILES = (
+    CORE_MARKDOWN_FILES
+    | CORE_OTHER_ROOT_FILES
+    | OPENCLAW_MANAGED_ROOT_FILES
+    | ARCHIVE_CANDIDATE_ROOT_FILES
+    | set(MOVE_CANDIDATE_ROOT_FILES)
+    | REVIEW_BEFORE_MOVE_ROOT_FILES
+)
+
+OPENCLAW_REFERENCE_DIRS = [
+    Path("/opt/homebrew/lib/node_modules/openclaw"),
+    Path.home() / ".openclaw" / "plugin-runtime-deps",
+]
+_OPENCLAW_REF_CACHE = {}
 
 FINDINGS = []
 ARGS = None
@@ -79,6 +128,60 @@ def line_no(text: str, substring: str) -> int:
         if substring in line:
             return i
     return 0
+
+
+def root_markdown_like_files():
+    """Return root markdown-ish files that commonly accumulate as clutter.
+
+    `*.md` catches normal root docs. `*.md.*` catches observed backup siblings
+    like `AGENTS.md.bak` and `MEMORY.md.backup-...`. Avoid speculative
+    patterns until a real file appears.
+    """
+    files = set(WORKSPACE.glob("*.md")) | set(WORKSPACE.glob("*.md.*"))
+    return sorted(files, key=lambda path: path.name.lower())
+
+
+def openclaw_reference_hits(filename: str, max_hits: int = 3):
+    """Search installed OpenClaw/runtime code for a root filename.
+
+    This is a cheap dynamic owner signal for future OpenClaw-managed files. Do
+    not rely on hash-suffixed bundle names; search strings across install dirs.
+    """
+    if filename in _OPENCLAW_REF_CACHE:
+        return _OPENCLAW_REF_CACHE[filename]
+
+    hits = []
+    for root in OPENCLAW_REFERENCE_DIRS:
+        if not root.exists():
+            continue
+        try:
+            proc = subprocess.run(
+                ["grep", "-RIl", "--", filename, str(root)],
+                capture_output=True,
+                text=True,
+                timeout=8,
+            )
+        except Exception:
+            continue
+        if proc.returncode not in (0, 1):
+            continue
+        for line in proc.stdout.splitlines():
+            if line:
+                hits.append(line)
+                if len(hits) >= max_hits:
+                    _OPENCLAW_REF_CACHE[filename] = hits
+                    return hits
+
+    _OPENCLAW_REF_CACHE[filename] = hits
+    return hits
+
+
+def root_file_review_hint(filename: str) -> str:
+    return (
+        "Run deterministic reference checks first; if ownership is still unclear, "
+        "use AI/web triage to classify as OpenClaw-managed, user note, backup, "
+        "project doc, or archive candidate. Never auto-move from AI output."
+    )
 
 
 # ── 1. PROJECTS.md drift ────────────────────────────────────────────────
@@ -369,35 +472,90 @@ def check_trials_md():
             )
 
 
-# ── 5. Orphaned backup files ───────────────────────────────────────────
+# ── 5. Root file ownership / cleanup candidates ───────────────────────
 def check_orphaned_files():
-    bak_files = list(WORKSPACE.glob("*.bak")) + list(WORKSPACE.glob("*.bak.*"))
-    for f in bak_files:
-        # Check if referenced by TRIALS.md rollback
-        trials_text = read_text(WORKSPACE / "TRIALS.md")
+    trials_text = read_text(WORKSPACE / "TRIALS.md")
+
+    # Backup files in root. Some are intentional rollback artifacts; stale
+    # unreferenced backups are cleanup candidates. Include observed `.md.*`
+    # backup siblings, not just `*.bak`.
+    backup_files = set(WORKSPACE.glob("*.bak")) | set(WORKSPACE.glob("*.bak.*"))
+    backup_files |= {
+        f for f in WORKSPACE.glob("*.md.*")
+        if re.search(r'(?i)(backup|bak|old)', f.name)
+    }
+    for f in sorted(backup_files, key=lambda path: path.name.lower()):
         if f.name in trials_text:
             find(
                 "INFO", str(f.relative_to(WORKSPACE)), 0,
-                f"Backup file referenced by TRIALS.md rollback instructions",
+                "Backup file referenced by TRIALS.md rollback instructions",
                 "Kept for rollback safety",
                 "Remove after all trials are resolved (post-2026-05-07)",
+            )
+        elif f.name in ARCHIVE_CANDIDATE_ROOT_FILES:
+            find(
+                "INFO", str(f.relative_to(WORKSPACE)), 0,
+                f"Reviewed root backup/archive candidate: {f.name}",
+                "Classified by root markdown audit; move/archive still requires approval",
+                "Archive with the root cleanup batch after approval; update drift-audit classification atomically",
             )
         else:
             find(
                 "WARNING", str(f.relative_to(WORKSPACE)), 0,
-                f"Orphaned backup file: {f.name}",
+                f"Unreviewed root backup file: {f.name}",
                 "No active process references this backup",
-                "Delete if no longer needed",
+                root_file_review_hint(f.name),
             )
 
-    # Orphaned markdown files in workspace root
-    for f in WORKSPACE.glob("*.md"):
-        if f.name not in CORE_FILES:
+    # Root markdown-like files. This deliberately does not scan claws_vault/**/*.md.
+    for f in root_markdown_like_files():
+        name = f.name
+        if name in CORE_MARKDOWN_FILES:
+            continue
+        if name in OPENCLAW_MANAGED_ROOT_FILES:
+            continue
+        if name in ARCHIVE_CANDIDATE_ROOT_FILES:
+            # Backup candidates are already handled above.
+            if f in backup_files:
+                continue
             find(
                 "INFO", str(f.relative_to(WORKSPACE)), 0,
-                f"Non-core markdown file in workspace root: {f.name}",
-                "Not listed as a core tracker file",
-                "Archive to memory/archive/ or add to CORE_FILES if it belongs",
+                f"Reviewed root archive candidate: {name}",
+                "Historical/superseded root markdown identified by root markdown audit",
+                "Archive with the root cleanup batch after approval; do not rewrite past daily-log references",
+            )
+            continue
+        if name in MOVE_CANDIDATE_ROOT_FILES:
+            find(
+                "INFO", str(f.relative_to(WORKSPACE)), 0,
+                f"Reviewed root move candidate: {name}",
+                f"Belongs under {MOVE_CANDIDATE_ROOT_FILES[name]} rather than workspace root",
+                "Move with explicit approval; update references, vault index, and drift-audit classification atomically",
+            )
+            continue
+        if name in REVIEW_BEFORE_MOVE_ROOT_FILES:
+            find(
+                "INFO", str(f.relative_to(WORKSPACE)), 0,
+                f"Root markdown requires review before cleanup: {name}",
+                "Likely superseded, but current project/skill coverage should be confirmed first",
+                "Review linked project docs before archive/move decision",
+            )
+            continue
+
+        hits = openclaw_reference_hits(name)
+        if hits:
+            find(
+                "INFO", str(f.relative_to(WORKSPACE)), 0,
+                f"Unclassified root markdown appears referenced by OpenClaw install/runtime: {name}",
+                "Dynamic reference signal suggests this may be OpenClaw-managed: " + ", ".join(hits[:3]),
+                "Review and persist classification before treating as clutter",
+            )
+        else:
+            find(
+                "INFO", str(f.relative_to(WORKSPACE)), 0,
+                f"Unclassified root markdown-like file: {name}",
+                "No static classification or installed OpenClaw reference found",
+                root_file_review_hint(name),
             )
 
 
@@ -522,6 +680,152 @@ def check_dreams():
             )
 
 
+# ── 9. Wiki hygiene (INFO-only guardrails) ──────────────────────────────
+def has_frontmatter(text: str) -> bool:
+    return text.startswith("---\n") and "\n---\n" in text[4:]
+
+
+def check_wiki_hygiene():
+    """Surface wiki hygiene drift as INFO-only observations.
+
+    This intentionally avoids shelling out to `openclaw wiki ...`: the audit must
+    stay cheap/read-only and should not trigger bridge imports or compiles. These
+    checks are early guardrails, not failure gates.
+    """
+    wiki_dir = VAULT / "wiki"
+    if not wiki_dir.exists():
+        return
+
+    sources_dir = wiki_dir / "sources"
+    syntheses_dir = wiki_dir / "syntheses"
+    reports_dir = wiki_dir / "reports"
+    state_file = wiki_dir / ".openclaw-wiki" / "state.json"
+    source_sync_file = wiki_dir / ".openclaw-wiki" / "source-sync.json"
+
+    source_files = [
+        p for p in sorted(sources_dir.glob("*.md"))
+        if p.name != "index.md"
+    ] if sources_dir.exists() else []
+    synthesis_files = [
+        p for p in sorted(syntheses_dir.glob("*.md"))
+        if p.name != "index.md"
+    ] if syntheses_dir.exists() else []
+    report_files = [
+        p for p in sorted(reports_dir.glob("*.md"))
+        if p.name != "index.md"
+    ] if reports_dir.exists() else []
+
+    if not source_files:
+        find(
+            "INFO", "claws_vault/wiki/sources", 0,
+            "Wiki has no source pages",
+            "Compiled wiki source coverage is empty or unavailable",
+            "Run/inspect wiki maintenance only if wiki recall quality appears degraded",
+        )
+    else:
+        missing_frontmatter = []
+        tiny_sources = []
+        for path in source_files:
+            text = read_text(path)
+            rel = str(path.relative_to(WORKSPACE))
+            if not has_frontmatter(text):
+                missing_frontmatter.append(rel)
+            body = re.sub(r'^---\n.*?\n---\n', '', text, flags=re.DOTALL).strip()
+            nonempty_lines = [line for line in body.splitlines() if line.strip()]
+            if len(body) < 200 or len(nonempty_lines) <= 3:
+                tiny_sources.append(rel)
+
+        if missing_frontmatter:
+            sample = ", ".join(missing_frontmatter[:3])
+            find(
+                "INFO", "claws_vault/wiki/sources", 0,
+                f"{len(missing_frontmatter)} wiki source page(s) missing frontmatter",
+                f"Sample: {sample}",
+                "Regenerate or repair source pages if this correlates with wiki_lint warnings",
+            )
+
+        if tiny_sources:
+            sample = ", ".join(tiny_sources[:3])
+            find(
+                "INFO", "claws_vault/wiki/sources", 0,
+                f"{len(tiny_sources)} tiny wiki source page(s) detected",
+                f"Sample: {sample}",
+                "Check for related-only shell pages before trusting bridge recall",
+            )
+
+    lint_report = reports_dir / "lint.md"
+    lint_text = read_text(lint_report)
+    if lint_text:
+        err_match = re.search(r'- Errors:\s*(\d+)', lint_text)
+        warn_match = re.search(r'- Warnings:\s*(\d+)', lint_text)
+        errors = int(err_match.group(1)) if err_match else None
+        warnings = int(warn_match.group(1)) if warn_match else None
+        if errors or warnings:
+            find(
+                "INFO", "claws_vault/wiki/reports/lint.md", 0,
+                f"Wiki lint report shows {errors if errors is not None else '?'} error(s), {warnings if warnings is not None else '?'} warning(s)",
+                "Wiki hygiene issues are present in the generated report",
+                "Review wiki_lint output; promote to WARNING only after INFO-only trial proves useful",
+            )
+    elif reports_dir.exists():
+        find(
+            "INFO", "claws_vault/wiki/reports/lint.md", 0,
+            "Wiki lint report is missing",
+            "No generated wiki lint report found on disk",
+            "Run wiki_lint during scheduled wiki maintenance if needed",
+        )
+
+    contradiction_report = reports_dir / "contradictions.md"
+    contradiction_text = read_text(contradiction_report)
+    if contradiction_text and "No contradictions flagged" not in contradiction_text:
+        find(
+            "INFO", "claws_vault/wiki/reports/contradictions.md", 0,
+            "Wiki contradictions report contains findings",
+            "Generated contradictions report is not clean",
+            "Review contradictions before relying on compiled wiki syntheses",
+        )
+
+    state_text = read_text(state_file)
+    if state_text:
+        try:
+            state = json.loads(state_text)
+            render_mode = state.get("renderMode")
+            if render_mode and render_mode not in {"obsidian", "bridge"}:
+                find(
+                    "INFO", "claws_vault/wiki/.openclaw-wiki/state.json", 0,
+                    f"Wiki state renderMode is `{render_mode}`",
+                    "Current user-facing wiki status may differ from stored state",
+                    "Verify wiki status during maintenance; do not auto-edit state",
+                )
+        except Exception:
+            find(
+                "INFO", "claws_vault/wiki/.openclaw-wiki/state.json", 0,
+                "Wiki state file is not valid JSON",
+                "State file could not be parsed",
+                "Inspect wiki state before running compile/import operations",
+            )
+
+    sync_text = read_text(source_sync_file)
+    if sync_text:
+        try:
+            sync = json.loads(sync_text)
+            entries = sync.get("entries", {}) if isinstance(sync, dict) else {}
+            if source_files and not entries:
+                find(
+                    "INFO", "claws_vault/wiki/.openclaw-wiki/source-sync.json", 0,
+                    "Wiki source-sync has no entries while source pages exist",
+                    f"Sources: {len(source_files)}, syntheses: {len(synthesis_files)}, reports: {len(report_files)}",
+                    "Confirm this is expected before using shell bridge import/compile workflows",
+                )
+        except Exception:
+            find(
+                "INFO", "claws_vault/wiki/.openclaw-wiki/source-sync.json", 0,
+                "Wiki source-sync file is not valid JSON",
+                "Source sync state could not be parsed",
+                "Inspect source-sync before bridge repair work",
+            )
+
+
 # ── Report formatting ────────────────────────────────────────────────────
 def print_report():
     sev_order = {"CRITICAL": 0, "WARNING": 1, "INFO": 2}
@@ -585,5 +889,6 @@ if __name__ == "__main__":
     check_cron_skill_mismatch()
     check_daily_logs()
     check_dreams()
+    check_wiki_hygiene()
     print_report()
     sys.exit(0 if not any(f["severity"] == "CRITICAL" for f in FINDINGS) else 1)

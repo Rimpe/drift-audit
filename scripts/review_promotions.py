@@ -10,6 +10,7 @@ import argparse
 import re
 from datetime import datetime
 from pathlib import Path
+from typing import Optional, Tuple
 
 WORKSPACE = Path.home() / ".openclaw" / "workspace"
 MEMORY_PATH = WORKSPACE / "MEMORY.md"
@@ -33,7 +34,7 @@ def read_text(path: Path) -> str:
         return ""
 
 
-def normalize_source(raw: str | None) -> tuple[str | None, int | None, int | None]:
+def normalize_source(raw: Optional[str]) -> Tuple[Optional[str], Optional[int], Optional[int]]:
     if not raw:
         return None, None, None
     match = re.match(r"(.+):(\d+)-(\d+)$", raw.strip())
@@ -42,7 +43,7 @@ def normalize_source(raw: str | None) -> tuple[str | None, int | None, int | Non
     return match.group(1), int(match.group(2)), int(match.group(3))
 
 
-def source_excerpt(source: str | None, start: int | None, end: int | None) -> str:
+def source_excerpt(source: Optional[str], start: Optional[int], end: Optional[int]) -> str:
     if not source or start is None or end is None:
         return ""
     path = WORKSPACE / source
@@ -54,7 +55,7 @@ def source_excerpt(source: str | None, start: int | None, end: int | None) -> st
     return excerpt
 
 
-def suggest_action(text: str, source: str | None) -> str:
+def suggest_action(text: str, source: Optional[str]) -> str:
     lower = text.lower()
     if "score=" in lower or "recalls=" in lower:
         return "review"

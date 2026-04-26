@@ -14,9 +14,10 @@ A drift scanner for OpenClaw agent workspaces. Detects stale tracker entries, br
 | **TRIALS.md** | Evaluation dates passed or approaching |
 | **Cron jobs** | Skill/cron mismatches |
 | **Skills** | Skills with no cron registration (on-demand vs orphaned) |
-| **Workspace root** | Orphaned backup files, non-core markdown drift |
+| **Workspace root** | Backup files, reviewed archive/move candidates, dynamic OpenClaw-managed file signals, unclassified root markdown-like files |
 | **Daily logs** | Today's file existence |
 | **Dreaming** | Cron delivery configuration vs DREAMS.md canonical status |
+| **Wiki hygiene** | INFO-only guardrails for missing/tiny wiki sources, generated lint/contradiction reports, and source-sync/state anomalies |
 
 ## Install
 
@@ -116,9 +117,13 @@ Add to `cron/jobs.json` for weekly automated scanning:
 
 Edit `scripts/audit.py` to adjust:
 
-- `CORE_FILES` — files considered essential (not orphaned)
+- Root file classification sets in `scripts/audit.py` (`CORE_MARKDOWN_FILES`, `OPENCLAW_MANAGED_ROOT_FILES`, archive/move candidates)
 - Date thresholds for staleness
 - Severity mappings
+
+### Root file ownership policy
+
+Root cleanup is conservative. The audit scans root `*.md` and observed backup siblings `*.md.*`, but it does **not** scan `claws_vault/**/*.md` as root clutter. For unknown root files, deterministic checks come first: static classification, rollback/trial references, and installed OpenClaw/runtime string references. If ownership is still unclear, use AI/web triage to classify the file as likely OpenClaw-managed, user note, backup, project doc, or archive candidate. AI/web output is advisory only: never auto-delete or auto-move based on it.
 
 ## Requirements
 
