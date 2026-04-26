@@ -38,6 +38,12 @@ python3 ~/.openclaw/workspace/skills/drift-audit/scripts/audit.py
 
 The script scans the workspace, prints a structured report to stdout, and appends a daily-log summary. Pass `--no-log` to skip the daily-log write.
 
+To inspect OpenClaw dreaming auto-promotions in `MEMORY.md`, run the read-only helper:
+
+```bash
+python3 ~/.openclaw/workspace/skills/drift-audit/scripts/review_promotions.py
+```
+
 ## Report Format
 
 The script outputs a structured report with severity levels:
@@ -64,6 +70,8 @@ Each finding includes:
 ## How to act on findings
 
 When a finding implicates content in a past `memory/YYYY-MM-DD.md` file, **do not edit that file**. Past daily logs are an event record — they capture what was true at that moment, including statements that later turned out wrong. Resolve drift by editing the current state file (`MEMORY.md`, `PROJECTS.md`, `HEARTBEAT.md`, `TRIALS.md`) and appending a correction to *today's* daily log. Curated state files are fair game; daily logs are append-only history.
+
+OpenClaw dreaming auto-promotions are expected but temporary. Treat `## Promoted From Short-Term Memory (...)` sections as an inbox: fresh sections are INFO, stale unreviewed sections become WARNING, and resolution means curate durable items into normal `MEMORY.md` prose, dismiss noise, or mark deferred with `<!-- openclaw-promotion-reviewed:YYYY-MM-DD curated|dismissed|deferred -->`.
 
 ## Deeper Audits
 

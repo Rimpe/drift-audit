@@ -37,6 +37,9 @@ python3 ~/.openclaw/workspace/skills/drift-audit/scripts/audit.py
 # Fully read-only run: print report only, no daily-log summary
 python3 ~/.openclaw/workspace/skills/drift-audit/scripts/audit.py --no-log
 
+# Review OpenClaw dreaming auto-promotions in MEMORY.md
+python3 ~/.openclaw/workspace/skills/drift-audit/scripts/review_promotions.py
+
 # Or invoke via OpenClaw skill system
 openclaw skills invoke drift-audit
 ```
@@ -78,6 +81,17 @@ drift-audit reports state, it doesn't fix it. When acting on a finding, follow t
 **Never rewrite past daily logs.** Past `memory/YYYY-MM-DD.md` files are an event record — they capture what was true at that moment, including statements that later turned out wrong. Resolving drift by editing the current state file (`MEMORY.md`, `PROJECTS.md`, `HEARTBEAT.md`, `TRIALS.md`) and appending a correction to *today's* daily log preserves the historical signal. Overwriting a past log destroys it.
 
 Curated state files are fair game to edit or delete stale sections. Daily logs are append-only history.
+
+### Auto-promotion review
+
+OpenClaw dreaming appends strong short-term candidates to `MEMORY.md` under `## Promoted From Short-Term Memory (...)`. Treat these sections as a temporary long-term-memory inbox:
+
+- Fresh sections (≤48h) are INFO.
+- Unreviewed stale sections (>48h) are WARNING.
+- Use `scripts/review_promotions.py` to inspect candidates and source lines.
+- Resolve each section by curating durable items into normal `MEMORY.md` prose, dismissing noise, or deferring with a reason.
+- Optional review marker after resolution:
+  `<!-- openclaw-promotion-reviewed:YYYY-MM-DD curated|dismissed|deferred -->`
 
 ## Running as a cron job
 

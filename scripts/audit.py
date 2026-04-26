@@ -221,30 +221,38 @@ def check_memory_md():
                         break
 
     # Auto-promoted short-term memory blocks are expected output from OpenClaw's
-    # Memory Dreaming Promotion system. They are not inherently wrong, but Tier 1
-    # memory should not accumulate unreviewed machine-promoted sections forever.
-    if "openclaw-memory-promotion" in text:
-        line = line_no(text, "openclaw-memory-promotion")
-        promotion_dates = []
-        for match in re.finditer(r'Promoted From Short-Term Memory \((\d{4}-\d{2}-\d{2})\)', text):
-            try:
-                promotion_dates.append(datetime.strptime(match.group(1), "%Y-%m-%d").date())
-            except ValueError:
-                continue
-        newest_date = max(promotion_dates) if promotion_dates else None
-        today = datetime.now().date()
-        age_days = (today - newest_date).days if newest_date else None
+    # Memory Dreaming Promotion system. They are a temporary Tier 1 inbox: fresh
+    # sections are fine, but stale raw sections should be curated or dismissed.
+    reviewed_dates = set(re.findall(
+        r'<!--\s*openclaw-promotion-reviewed:(\d{4}-\d{2}-\d{2})\s+(?:curated|dismissed|deferred)\s*-->',
+        text,
+        flags=re.IGNORECASE,
+    ))
+    section_re = re.compile(
+        r'## Promoted From Short-Term Memory \((\d{4}-\d{2}-\d{2})\)\n(?P<body>.*?)(?=\n## |\Z)',
+        flags=re.DOTALL,
+    )
+    today = datetime.now().date()
+    for match in section_re.finditer(text):
+        date_str = match.group(1)
+        if date_str in reviewed_dates:
+            continue
+        line = text[:match.start()].count("\n") + 1
+        body = match.group("body")
+        raw_bullets = len(re.findall(r'^- .+\[score=.*?recalls=.*?avg=.*?source=.*?\]', body, flags=re.MULTILINE))
+        marker_count = body.count("openclaw-memory-promotion:")
+        try:
+            section_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            age_days = (today - section_date).days
+        except ValueError:
+            age_days = None
         severity = "INFO" if age_days is not None and age_days <= 2 else "WARNING"
-        reality = (
-            f"Newest auto-promotion section is {age_days} day(s) old; fresh auto-promotions are expected but should be reviewed"
-            if age_days is not None
-            else "Auto-promotion section age could not be determined; review needed"
-        )
+        age_text = f"{age_days} day(s) old" if age_days is not None else "undated"
         find(
             severity, "MEMORY.md", line,
-            "Uncurated auto-promotion section present (openclaw-memory-promotion)",
-            reality,
-            "Review the promoted candidates; curate durable items into normal MEMORY.md prose or explicitly dismiss them",
+            f"Unreviewed auto-promotion section ({date_str}) with {marker_count} candidate(s), {raw_bullets} raw telemetry bullet(s)",
+            f"Section is {age_text}; fresh auto-promotions are expected, stale raw promotions clutter Tier 1 memory",
+            "Review candidates with scripts/review_promotions.py; curate durable items into normal MEMORY.md prose, dismiss noise, or mark deferred",
         )
 
     # Check for stale daily log references
