@@ -1,6 +1,6 @@
 # drift-audit
 
-A drift scanner for OpenClaw agent workspaces. Detects stale tracker entries, broken references, contradictions between documentation and reality, orphaned files, and cron/skill mismatches.
+A report-only drift scanner for OpenClaw agent workspaces. Detects stale tracker entries, broken references, contradictions between documentation and reality, orphaned files, cron/skill mismatches, wiki hygiene drift, root-file ownership drift, and concrete claims that need independent validation.
 
 **Never applies fixes.** Findings are reported for human review and explicit approval. By default, the script also appends a concise audit summary to today's daily memory log; pass `--no-log` for a fully read-only run.
 
@@ -12,7 +12,8 @@ A drift scanner for OpenClaw agent workspaces. Detects stale tracker entries, br
 | **MEMORY.md** | Line count, stale model/plugin claims, contradictions, uncurated auto-promotion sections |
 | **HEARTBEAT.md** | Broken file references, trial expiry, vault path drift |
 | **TRIALS.md** | Evaluation dates passed or approaching |
-| **Cron jobs** | Skill/cron mismatches |
+| **AI claim validation** | The invoking agent reviews important current-state claims and chooses suitable read-only validation tools for each case |
+| **Cron jobs** | Skill/cron mismatches and project claims that imply a missing scheduled job |
 | **Skills** | Skills with no cron registration (on-demand vs orphaned) |
 | **Workspace root** | Backup files, reviewed archive/move candidates, dynamic OpenClaw-managed file signals, unclassified root markdown-like files |
 | **Daily logs** | Today's file existence |
@@ -49,8 +50,8 @@ openclaw skills invoke drift-audit
 
 Structured report with severity levels:
 
-- **🔴 CRITICAL:** Data integrity risk — contradictions, missing referenced files, unreadable required state
-- **🟡 WARNING:** Stale data, approaching deadlines, drifting trackers
+- **🔴 CRITICAL:** Data integrity risk — contradictions, false completed state, missing referenced files, missing scheduled jobs, unreadable required state
+- **🟡 WARNING:** Stale data, approaching deadlines, drifting trackers, unverified concrete claims
 - **🟢 INFO:** Observations, cleanup opportunities, architectural notes
 
 Example:
@@ -94,6 +95,17 @@ OpenClaw dreaming appends strong short-term candidates to `MEMORY.md` under `## 
 - Optional review marker after resolution:
   `<!-- openclaw-promotion-reviewed:YYYY-MM-DD curated|dismissed|deferred -->`
 
+## AI Claim Validation
+
+The Python script is intentionally deterministic and domain-neutral. It should not hardcode every possible way to verify claims. When invoked through an agent, the agent should perform a second pass:
+
+1. Identify concrete current-state claims that matter.
+2. Infer the right read-only evidence source from the claim and local context.
+3. Use only non-mutating commands, tools, skills, APIs, docs, or file reads.
+4. Report verified, contradicted, and unverified claims with evidence.
+
+Example: if a tracker claims a host firewall is enabled, the agent should determine the host OS and choose the relevant read-only firewall-status command. The script should not need to know that command in advance.
+
 ## Running as a cron job
 
 Add to `cron/jobs.json` for weekly automated scanning:
@@ -124,6 +136,10 @@ Edit `scripts/audit.py` to adjust:
 ### Root file ownership policy
 
 Root cleanup is conservative. The audit scans root `*.md` and observed backup siblings `*.md.*`, but it does **not** scan `claws_vault/**/*.md` as root clutter. For unknown root files, deterministic checks come first: static classification, rollback/trial references, and installed OpenClaw/runtime string references. If ownership is still unclear, use AI/web triage to classify the file as likely OpenClaw-managed, user note, backup, project doc, or archive candidate. AI/web output is advisory only: never auto-delete or auto-move based on it.
+
+### Domain-specific validation policy
+
+The script intentionally keeps domain-specific claim validation out of code. Add broad deterministic checks only when they are stable across workspaces; otherwise document the validation workflow in `SKILL.md` so the invoking agent can choose the right read-only evidence source.
 
 ## Requirements
 
